@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notesify — Email Verified</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #0a0a0a;
+      --bg1:    #111111;
+      --bg2:    #181818;
+      --bg3:    #1f1f1f;
+      --line:   rgba(255,255,255,0.07);
+      --line2:  rgba(255,255,255,0.12);
+      --line3:  rgba(255,255,255,0.20);
+      --text:   #e8e8e8;
+      --text2:  #999;
+      --text3:  #555;
+      --accent: #ffffff;
+      --accent2:#cccccc;
+      --white:  #fff;
+      --red:    #ff5f57;
+      --green:  #28c840;
+    }
+
+    html { scroll-behavior: smooth; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 0; }
+    * { scrollbar-width: thin; scrollbar-color: #1f1f1f #0a0a0a; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* grid background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* radial glow — green tint on success, red tint on error */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -20%; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 500px;
+      background: radial-gradient(ellipse, var(--glow-color, rgba(255,255,255,0.04)) 0%, transparent 65%);
+      pointer-events: none; z-index: 0;
+      transition: background 0.8s ease;
+    }
+    body.state-success { --glow-color: rgba(40,200,64,0.06); }
+    body.state-error   { --glow-color: rgba(255,95,87,0.06); }
+
+    /* NAV */
+    nav {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px; height: 56px;
+      background: rgba(10,10,10,0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-mark {
+      width: 28px; height: 28px; background: var(--accent);
+      border-radius: 2px; display: flex; align-items: center; justify-content: center;
+    }
+    .logo-mark svg { width: 24px; height: 24px; color: #000; }
+    .logo-name {
+      font-family: 'DM Mono', monospace;
+      font-size: 15px; font-weight: 500;
+      color: var(--white); letter-spacing: -0.02em;
+    }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .btn-nav-login {
+      display: inline-flex; align-items: center;
+      background: transparent; color: var(--text2);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px; font-weight: 500;
+      padding: 7px 16px; border-radius: 2px;
+      border: 1px solid var(--line2); text-decoration: none;
+      letter-spacing: 0.02em;
+      transition: color 0.2s, border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-nav-login:hover { color: var(--text); border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.06); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+
+    /* MAIN */
+    main {
+      position: relative; z-index: 1;
+      flex: 1; display: flex;
+      align-items: center; justify-content: center;
+      padding: 48px 24px;
+    }
+
+    /* CARD WRAPPER — three states */
+    .verify-wrap {
+      width: 100%; max-width: 420px;
+    }
+
+    /* each state panel */
+    .state-panel {
+      display: none;
+      animation: fadeUp 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+    .state-panel.active { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* eyebrow */
+    .eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text3);
+      text-align: center; margin-bottom: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .eyebrow::before, .eyebrow::after {
+      content: ''; display: block; flex: 1;
+      height: 1px; background: var(--line2); max-width: 60px;
+    }
+
+    /* heading */
+    .heading {
+      font-family: 'Instrument Serif', serif;
+      font-size: clamp(28px, 5vw, 40px);
+      font-weight: 400; line-height: 1.1;
+      letter-spacing: -0.02em; color: var(--white);
+      text-align: center; margin-bottom: 8px;
+    }
+    .heading em { font-style: italic; color: var(--text2); }
+
+    .subtext {
+      font-size: 13px; color: var(--text2);
+      text-align: center; font-weight: 300;
+      line-height: 1.65; margin-bottom: 36px;
+    }
+
+    /* CARD */
+    .card {
+      background: var(--bg1);
+      border: 1px solid var(--line2);
+      border-radius: 6px;
+      padding: 40px 32px;
+      text-align: center;
+    }
+
+    /* ── LOADING state ── */
+    .loader-ring {
+      width: 56px; height: 56px;
+      border: 2px solid var(--line2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 24px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text3);
+    }
+
+    /* ── SUCCESS state ── */
+    .check-wrap {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: rgba(40,200,64,0.08);
+      border: 1px solid rgba(40,200,64,0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 28px;
+      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.6); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .check-wrap svg {
+      width: 32px; height: 32px;
+      color: var(--green);
+      stroke-dasharray: 50;
+      stroke-dashoffset: 50;
+      animation: drawCheck 0.4s 0.2s ease forwards;
+    }
+    @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+
+    .success-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 26px; font-weight: 400;
+      letter-spacing: -0.01em; color: var(--white);
+      margin-bottom: 10px;
+    }
+    .success-sub {
+      font-size: 13px; color: var(--text2);
+      font-weight: 300; line-height: 1.65;
+      margin-bottom: 32px;
+    }
+    .success-sub strong { color: var(--text); font-weight: 500; }
+
+    /* divider in card */
+    .card-divider {
+      height: 1px; background: var(--line);
+      margin: 28px 0;
+    }
+
+    .hint-row {
+      display: flex; align-items: center; gap: 8px;
+      justify-content: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text3);
+    }
+    .hint-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--green); }
+
+    /* ── ERROR state ── */
+    .error-wrap {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: rgba(255,95,87,0.06);
+      border: 1px solid rgba(255,95,87,0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 28px;
+      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .error-wrap svg { width: 28px; height: 28px; color: var(--red); }
+
+    .error-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 26px; font-weight: 400;
+      letter-spacing: -0.01em; color: var(--white);
+      margin-bottom: 10px;
+    }
+    .error-detail {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; color: var(--red);
+      letter-spacing: 0.04em;
+      background: rgba(255,95,87,0.07);
+      border: 1px solid rgba(255,95,87,0.15);
+      border-radius: 3px;
+      padding: 10px 14px;
+      margin-bottom: 28px;
+    }
+
+    /* BUTTONS */
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--accent); color: #000;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px; font-weight: 500;
+      padding: 12px 28px; border-radius: 2px;
+      text-decoration: none; letter-spacing: 0.04em;
+      border: none; cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      width: 100%;
+    }
+    .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: transparent; color: var(--text2);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px; font-weight: 500;
+      padding: 12px 28px; border-radius: 2px;
+      text-decoration: none; letter-spacing: 0.04em;
+      border: 1px solid var(--line2); cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      width: 100%; margin-top: 10px;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--line3); background: rgba(255,255,255,0.02); }
+
+    .btn-row { display: flex; flex-direction: column; gap: 0; }
+
+    /* FOOTER */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 40px;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; color: var(--text3);
+      letter-spacing: 0.06em; flex-shrink: 0;
+    }
+    .footer-logo { color: var(--accent); }
+
+    @media (max-width: 600px) {
+      nav { padding: 0 20px; }
+      footer { padding: 16px 20px; }
+      .card { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="index.html" class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <line x1="2" y1="9" x2="2" y2="15"/><line x1="5.5" y1="5.5" x2="5.5" y2="18.5"/><line x1="9" y1="2.5" x2="9" y2="21.5"/><line x1="12" y1="1" x2="12" y2="23"/><line x1="15" y1="4" x2="15" y2="20"/><line x1="18.5" y1="7" x2="18.5" y2="17"/><line x1="22" y1="9.5" x2="22" y2="14.5"/>
+      </svg>
+    </div>
+    <span class="logo-name">notesify</span>
+  </a>
+  <div class="nav-right">
+    <a href="login.html" class="btn-nav-login">Log In</a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main>
+  <div class="verify-wrap">
+
+    <!-- ── STATE: LOADING ── -->
+    <div class="state-panel active" id="panel-loading">
+      <div class="eyebrow">Email verification</div>
+      <h1 class="heading">Verifying your<br><em>account</em></h1>
+      <p class="subtext">Just a moment while we confirm your email address.</p>
+      <div class="card">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Verifying&hellip;</p>
+      </div>
+    </div>
+
+    <!-- ── STATE: SUCCESS ── -->
+    <div class="state-panel" id="panel-success">
+      <div class="eyebrow">All done</div>
+      <h1 class="heading">Email<br><em>verified</em></h1>
+      <p class="subtext">Your account is confirmed and ready to use.</p>
+      <div class="card">
+        <div class="check-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <p class="success-title">Your email has been verified</p>
+        <p class="success-sub">You can now sign in to Notesify.<br>You no longer need this tab.</p>
+
+        <div class="card-divider"></div>
+
+        <div class="btn-row">
+          <a href="login.html" class="btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+              <polyline points="10 17 15 12 10 7"/>
+              <line x1="15" y1="12" x2="3" y2="12"/>
+            </svg>
+            Go to Login
+          </a>
+          <button class="btn-secondary" id="btn-open-app" style="display:none;" onclick="window.location.href='app.html'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="5 12 12 5 19 12"/><line x1="12" y1="5" x2="12" y2="19"/>
+            </svg>
+            Open App
+          </button>
+        </div>
+
+        <div style="margin-top:20px;">
+          <div class="hint-row">
+            <div class="hint-dot"></div>
+            <span>Account active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STATE: ERROR ── -->
+    <div class="state-panel" id="panel-error">
+      <div class="eyebrow">Verification failed</div>
+      <h1 class="heading">Something<br><em>went wrong</em></h1>
+      <p class="subtext">The link may have expired or already been used.</p>
+      <div class="card">
+        <div class="error-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <p class="error-title">Verification failed</p>
+        <div class="error-detail" id="error-detail">Link is invalid or has expired.</div>
+        <div class="btn-row">
+          <a href="register.html" class="btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+            </svg>
+            Try Again
+          </a>
+          <a href="login.html" class="btn-secondary">Back to Login</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <span class="footer-logo">Notesify</span>
+  <span>© 2026 Notesify. All rights reserved.</span>
+</footer>
+
+<!-- Firebase v9 modular SDK -->
+<script type="module">
+  import { initializeApp }  from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getAuth, applyActionCode, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAu4C5LIwJACYgXT8_o5ufKv8Zhrl4ZSY0",
+  authDomain: "notesify-c716b.firebaseapp.com",
+  databaseURL: "https://notesify-c716b-default-rtdb.firebaseio.com",
+  projectId: "notesify-c716b",
+  storageBucket: "notesify-c716b.firebasestorage.app",
+  messagingSenderId: "379172502803",
+  appId: "1:379172502803:web:a383644ee97dd363402ee6",
+  measurementId: "G-7WYHHWN9W9"
+};
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // ── helpers ──────────────────────────────────────────────────
+  function showPanel(id) {
+    document.querySelectorAll('.state-panel').forEach(p => {
+      p.classList.remove('active');
+    });
+    // restart animation
+    const panel = document.getElementById(id);
+    panel.classList.remove('active');
+    void panel.offsetWidth; // reflow
+    panel.classList.add('active');
+  }
+
+  function showSuccess() {
+    document.body.classList.add('state-success');
+    showPanel('panel-success');
+  }
+
+  function showError(msg) {
+    document.body.classList.add('state-error');
+    document.getElementById('error-detail').textContent = msg || 'Link is invalid or has expired.';
+    showPanel('panel-error');
+  }
+
+  // ── map Firebase error codes to human messages ────────────────
+  function friendlyError(code) {
+    const map = {
+      'auth/invalid-action-code':  'This verification link is invalid. It may have already been used.',
+      'auth/expired-action-code':  'This verification link has expired. Please request a new one.',
+      'auth/user-disabled':        'This account has been disabled. Contact support.',
+      'auth/user-not-found':       'No account found. Please register again.',
+      'auth/network-request-failed':'Network error. Check your connection and try again.',
+    };
+    return map[code] || 'Verification failed. Please try again or request a new link.';
+  }
+
+  // ── main verification logic ───────────────────────────────────
+  async function runVerification() {
+    const params  = new URLSearchParams(window.location.search);
+    const mode    = params.get('mode');
+    const oobCode = params.get('oobCode');
+
+    // Guard: must be a verifyEmail action
+    if (!oobCode || mode !== 'verifyEmail') {
+      showError('No verification code found in this link.');
+      return;
+    }
+
+    try {
+      // Apply the verification code
+      await applyActionCode(auth, oobCode);
+
+      // Check if the user is currently signed in — show "Open App" if so
+      onAuthStateChanged(auth, user => {
+        if (user) {
+          user.reload().then(() => {
+            if (user.emailVerified) {
+              document.getElementById('btn-open-app').style.display = 'flex';
+            }
+          });
+        }
+      });
+
+      showSuccess();
+
+    } catch (err) {
+      console.error('Email verification error:', err);
+      showError(friendlyError(err.code));
+    }
+  }
+
+  // Boot
+  runVerification();
+</script>
+
+</body>
+</html>
